@@ -1674,6 +1674,10 @@ def conv2d(x, kernel, strides=(1, 1), border_mode='valid',
             Whether to use Theano or TensorFlow dimension ordering
             for inputs/kernels/ouputs.
     '''
+    # print '*** Conv2d: \n\tX:{0} \n\tkernel:{1} \n\tstride:{2} \n\tfilter_shape:{3} '.format(int_shape(x), int_shape(kernel), strides, filter_shape)
+    # print '*** Conv2d: \n\tX:{0} \n\tkernel:{1} \n\tstride:{2} \n\tfilter_shape:{3} '.format(shape(x), shape(kernel), strides, filter_shape)
+
+
     if dim_ordering == 'default':
         dim_ordering = image_dim_ordering()
     if dim_ordering not in {'th', 'tf'}:
@@ -1708,6 +1712,9 @@ def deconv2d(x, kernel, output_shape, strides=(1, 1),
             Whether to use Theano or TensorFlow dimension ordering
             for inputs/kernels/ouputs.
     '''
+
+    # print '*** Deconv2d: \n\tX:{0} \n\tkernel:{1} \n\tstride:{2} \n\tfilter_shape:{3} \n\toutput_shape:{4}'.format(int_shape(x), int_shape(kernel), strides, filter_shape, output_shape)
+
     if dim_ordering == 'default':
         dim_ordering = image_dim_ordering()
     if dim_ordering not in {'th', 'tf'}:

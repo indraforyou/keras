@@ -809,12 +809,23 @@ class Model(Container):
             epoch_logs = {}
             for batch_index, (batch_start, batch_end) in enumerate(batches):
                 batch_ids = index_array[batch_start:batch_end]
+                # print index_array
+                # print batch_start
+                # print batch_end
+                # print batch_ids
                 try:
                     if type(ins[-1]) is float:
                         # do not slice the training phase flag
                         ins_batch = slice_X(ins[:-1], batch_ids) + [ins[-1]]
                     else:
                         ins_batch = slice_X(ins, batch_ids)
+
+                    # print len(ins_batch)
+                    # print ins_batch[0].shape
+                    # print ins_batch[1].shape
+                    # print ins_batch[2].shape
+                    # print ins_batch[-1]
+
                 except TypeError:
                     raise Exception('TypeError while preparing batch. '
                                     'If using HDF5 input data, '
@@ -822,8 +833,14 @@ class Model(Container):
                 batch_logs = {}
                 batch_logs['batch'] = batch_index
                 batch_logs['size'] = len(batch_ids)
+                batch_logs['batch_ids'] = batch_ids
+                
                 callbacks.on_batch_begin(batch_index, batch_logs)
                 outs = f(ins_batch)
+
+                batch_logs = {}
+                batch_logs['batch'] = batch_index
+                batch_logs['size'] = len(batch_ids)
                 if type(outs) != list:
                     outs = [outs]
                 for l, o in zip(out_labels, outs):

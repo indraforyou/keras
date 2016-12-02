@@ -258,7 +258,7 @@ class ConvLSTM2D(ConvRecurrent2D):
                  dim_ordering='default',
                  border_mode='valid', subsample=(1, 1),
                  W_regularizer=None, U_regularizer=None, b_regularizer=None,
-                 dropout_W=0., dropout_U=0., **kwargs):
+                 dropout_W=0., dropout_U=0., dropout_always=False, **kwargs):
 
         if dim_ordering == 'default':
             dim_ordering = K.image_dim_ordering()
@@ -274,6 +274,7 @@ class ConvLSTM2D(ConvRecurrent2D):
         self.inner_activation = activations.get(inner_activation)
         self.border_mode = border_mode
         self.subsample = subsample
+        self.dropout_always = dropout_always
 
         if dim_ordering == 'th':
             warnings.warn('Be carefull if used with convolution3D layers:\n'
@@ -448,6 +449,13 @@ class ConvLSTM2D(ConvRecurrent2D):
         B_U = states[2]
         B_W = states[3]
 
+        # print '###################'
+        # print K.shape(h_tm1)
+        # print K.shape(c_tm1)
+        # # print K.shape(B_U)
+        # # print K.shape(B_W)
+        # print '###################'
+
         x_i = self.conv_step(x * B_W[0], self.W_i, self.b_i,
                              border_mode=self.border_mode)
         x_f = self.conv_step(x * B_W[1], self.W_f, self.b_f,
@@ -474,6 +482,11 @@ class ConvLSTM2D(ConvRecurrent2D):
         o = self.inner_activation(x_o + h_o)
         h = o * self.activation(c)
 
+        # print '###################'
+        # print '\n h: {0} \nc: {1} '.format(K.shape(h),K.shape(c))
+        # print '###################'
+
+
         return h, [h, c]
 
     def get_constants(self, x):
@@ -484,8 +497,12 @@ class ConvLSTM2D(ConvRecurrent2D):
             ones = self.conv_step(ones, K.zeros(self.W_shape),
                                   border_mode=self.border_mode)
             ones = ones + 1
-            B_U = [K.in_train_phase(K.dropout(ones, self.dropout_U), ones)
-                   for _ in range(4)]
+            if self.dropout_always:
+                B_U = [K.dropout(ones, self.dropout_U)
+                           for _ in range(4)]
+            else:
+                B_U = [K.in_train_phase(K.dropout(ones, self.dropout_U), ones)
+                       for _ in range(4)]
             constants.append(B_U)
         else:
             constants.append([K.cast_to_floatx(1.) for _ in range(4)])
@@ -494,8 +511,12 @@ class ConvLSTM2D(ConvRecurrent2D):
             ones = K.zeros_like(x)
             ones = K.sum(ones, axis=1)
             ones = ones + 1
-            B_W = [K.in_train_phase(K.dropout(ones, self.dropout_W), ones)
-                   for _ in range(4)]
+            if self.dropout_always:
+                B_W = [K.dropout(ones, self.dropout_W)
+                           for _ in range(4)]
+            else:
+                B_W = [K.in_train_phase(K.dropout(ones, self.dropout_W), ones)
+                       for _ in range(4)]
             constants.append(B_W)
         else:
             constants.append([K.cast_to_floatx(1.) for _ in range(4)])

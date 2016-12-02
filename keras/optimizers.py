@@ -59,6 +59,11 @@ class Optimizer(object):
         raise NotImplementedError
 
     def get_gradients(self, loss, params):
+        #print K.int_shape(loss)
+        #print '---------------'
+        #for idx in range(len(params)):
+        #    print K.int_shape(params[idx])
+            
         grads = K.gradients(loss, params)
         if hasattr(self, 'clipnorm') and self.clipnorm > 0:
             norm = K.sqrt(sum([K.sum(K.square(g)) for g in grads]))
