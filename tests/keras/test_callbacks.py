@@ -79,6 +79,22 @@ def test_ModelCheckpoint():
     assert os.path.exists(filepath)
     os.remove(filepath)
 
+    # case 5
+    save_best_only = False
+    period = 2
+    mode = 'auto'
+    filepath = 'checkpoint.{epoch:02d}.h5'
+    cbks = [callbacks.ModelCheckpoint(filepath, monitor=monitor,
+                                      save_best_only=save_best_only, mode=mode,
+                                      period=period)]
+    model.fit(X_train, y_train, batch_size=batch_size,
+              validation_data=(X_test, y_test), callbacks=cbks, nb_epoch=4)
+    assert os.path.exists(filepath.format(epoch=1))
+    assert os.path.exists(filepath.format(epoch=3))
+    assert not os.path.exists(filepath.format(epoch=0))
+    assert not os.path.exists(filepath.format(epoch=2))
+    os.remove(filepath.format(epoch=1))
+    os.remove(filepath.format(epoch=3))
 
 def test_EarlyStopping():
     (X_train, y_train), (X_test, y_test) = get_test_data(nb_train=train_samples,
@@ -190,14 +206,14 @@ def test_ReduceLROnPlateau():
                     reason="Requires tensorflow backend")
 def test_TensorBoard():
     import shutil
-    import tensorflow as tf
-    import keras.backend.tensorflow_backend as KTF
+
     filepath = './logs'
-    (X_train, y_train), (X_test, y_test) = get_test_data(nb_train=train_samples,
-                                                         nb_test=test_samples,
-                                                         input_shape=(input_dim,),
-                                                         classification=True,
-                                                         nb_class=nb_class)
+    (X_train, y_train), (X_test, y_test) = get_test_data(
+        nb_train=train_samples,
+        nb_test=test_samples,
+        input_shape=(input_dim,),
+        classification=True,
+        nb_class=nb_class)
     y_test = np_utils.to_categorical(y_test)
     y_train = np_utils.to_categorical(y_train)
 
@@ -209,9 +225,11 @@ def test_TensorBoard():
         i = 0
         while 1:
             if train:
-                yield (X_train[i * batch_size: (i + 1) * batch_size], y_train[i * batch_size: (i + 1) * batch_size])
+                yield (X_train[i * batch_size: (i + 1) * batch_size],
+                       y_train[i * batch_size: (i + 1) * batch_size])
             else:
-                yield (X_test[i * batch_size: (i + 1) * batch_size], y_test[i * batch_size: (i + 1) * batch_size])
+                yield (X_test[i * batch_size: (i + 1) * batch_size],
+                       y_test[i * batch_size: (i + 1) * batch_size])
             i += 1
             i = i % max_batch_index
 
@@ -235,7 +253,7 @@ def test_TensorBoard():
 
     # fit with validation data
     model.fit(X_train, y_train, batch_size=batch_size,
-              validation_data=(X_test, y_test), callbacks=cbks, nb_epoch=2)
+              validation_data=(X_test, y_test), callbacks=cbks, nb_epoch=3)
 
     # fit with validation data and accuracy
     model.fit(X_train, y_train, batch_size=batch_size,

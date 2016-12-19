@@ -37,6 +37,9 @@ seq.add(Convolution3D(nb_filter=1, kernel_dim1=1, kernel_dim2=3,
 
 seq.compile(loss='binary_crossentropy', optimizer='adadelta')
 
+seq.summary(line_length=150)
+exit()
+
 
 # Artificial data generation:
 # Generate movies with 3 to 7 moving squares inside.
@@ -139,4 +142,4 @@ for i in range(15):
         toplot = shifted_movies[which][i - 1, ::, ::, 0]
 
     plt.imshow(toplot)
-    plt.savefig('%i_animate.png' % (i + 1))
+    plt.savefig('%i_lstm_animate.png' % (i + 1))
