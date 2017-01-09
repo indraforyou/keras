@@ -101,6 +101,9 @@ def zero(shape, name=None):
 def one(shape, name=None):
     return K.ones(shape, name=name)
 
+def constant(shape, name=None, scale=1):
+    return K.variable(np.ones(shape) * scale, name=name)
+
 
 def get(identifier, **kwargs):
     return get_from_module(identifier, globals(),

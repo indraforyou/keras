@@ -323,46 +323,58 @@ class ConvLSTM2D(ConvRecurrent2D):
             # self.states = [None, None, None, None]
             self.states = [None, None]
 
-        self.W_i = self.init(self.W_shape, name='{}_W_i'.format(self.name))
-        self.U_i = self.inner_init(self.W_shape1,
-                                   name='{}_U_i'.format(self.name))
-        self.b_i = K.zeros((self.nb_filter,), name='{}_b_i'.format(self.name))
-
-        self.W_f = self.init(self.W_shape, name='{}_W_f'.format(self.name))
-        self.U_f = self.inner_init(self.W_shape1,
-                                   name='{}_U_f'.format(self.name))
-        self.b_f = self.forget_bias_init((self.nb_filter,),
-                                         name='{}_b_f'.format(self.name))
-
-        self.W_c = self.init(self.W_shape, name='{}_W_c'.format(self.name))
-        self.U_c = self.inner_init(self.W_shape1,
-                                   name='{}_U_c'.format(self.name))
-        self.b_c = K.zeros((self.nb_filter,), name='{}_b_c'.format(self.name))
-
-        self.W_o = self.init(self.W_shape, name='{}_W_o'.format(self.name))
-        self.U_o = self.inner_init(self.W_shape1,
-                                   name='{}_U_o'.format(self.name))
-        self.b_o = K.zeros((self.nb_filter,), name='{}_b_o'.format(self.name))
-
-        self.trainable_weights = [self.W_i, self.U_i, self.b_i,
-                                  self.W_c, self.U_c, self.b_c,
-                                  self.W_f, self.U_f, self.b_f,
-                                  self.W_o, self.U_o, self.b_o]
+        self.W_i = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_i'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_i = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_i'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_i = self.add_weight((self.nb_filter,),
+                                   initializer='zero',
+                                   name='{}_b_i'.format(self.name),
+                                   regularizer=self.b_regularizer)
+        self.W_f = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_f'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_f = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_f'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_f = self.add_weight((self.nb_filter,),
+                                   initializer=self.forget_bias_init,
+                                   name='{}_b_f'.format(self.name),
+                                   regularizer=self.b_regularizer)
+        self.W_c = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_c'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_c = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_c'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_c = self.add_weight((self.nb_filter,),
+                                   initializer='zero',
+                                   name='{}_b_c'.format(self.name),
+                                   regularizer=self.b_regularizer)
+        self.W_o = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_o'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_o = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_o'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_o = self.add_weight((self.nb_filter,),
+                                   initializer='zero',
+                                   name='{}_b_o'.format(self.name),
+                                   regularizer=self.b_regularizer)
 
         self.W = K.concatenate([self.W_i, self.W_f, self.W_c, self.W_o])
         self.U = K.concatenate([self.U_i, self.U_f, self.U_c, self.U_o])
         self.b = K.concatenate([self.b_i, self.b_f, self.b_c, self.b_o])
-
-        self.regularizers = []
-        if self.W_regularizer:
-            self.W_regularizer.set_param(self.W)
-            self.regularizers.append(self.W_regularizer)
-        if self.U_regularizer:
-            self.U_regularizer.set_param(self.U)
-            self.regularizers.append(self.U_regularizer)
-        if self.b_regularizer:
-            self.b_regularizer.set_param(self.b)
-            self.regularizers.append(self.b_regularizer)
 
         if self.initial_weights is not None:
             self.set_weights(self.initial_weights)
@@ -596,7 +608,8 @@ class ConvGRU2D(ConvRecurrent2D):
                  dim_ordering='default',
                  border_mode='valid', subsample=(1, 1),
                  W_regularizer=None, U_regularizer=None, b_regularizer=None,
-                 dropout_W=0., dropout_U=0., dropout_always=False, **kwargs):
+                 dropout_W=0., dropout_U=0., dropout_always=False,
+                 layer_normalization=False, ln_gama=True, ln_gama_init=1., ln_beta=True, ln_beta_init='zero',  **kwargs):
 
         if dim_ordering == 'default':
             dim_ordering = K.image_dim_ordering()
@@ -612,6 +625,11 @@ class ConvGRU2D(ConvRecurrent2D):
         self.border_mode = border_mode
         self.subsample = subsample
         self.dropout_always = dropout_always
+        self.layer_normalization = layer_normalization
+        self.ln_gama = ln_gama
+        self.ln_gama_init = ln_gama_init
+        self.ln_beta = ln_beta
+        self.ln_beta_init = ln_beta_init
 
         if dim_ordering == 'th':
             warnings.warn('Be carefull if used with convolution3D layers:\n'
@@ -666,40 +684,46 @@ class ConvGRU2D(ConvRecurrent2D):
             # self.states = [None, None, None]
             self.states = [None]
 
-        self.W_z = self.init(self.W_shape, name='{}_W_z'.format(self.name))
-        self.U_z = self.inner_init(self.W_shape1,
-                                   name='{}_U_z'.format(self.name))
-        self.b_z = K.zeros((self.nb_filter,), name='{}_b_z'.format(self.name))
-
-        self.W_r = self.init(self.W_shape, name='{}_W_r'.format(self.name))
-        self.U_r = self.inner_init(self.W_shape1,
-                                   name='{}_U_r'.format(self.name))
-        self.b_r = K.zeros((self.nb_filter,),
-                                         name='{}_b_r'.format(self.name))
-
-        self.W_h = self.init(self.W_shape, name='{}_W_h'.format(self.name))
-        self.U_h = self.inner_init(self.W_shape1,
-                                   name='{}_U_h'.format(self.name))
-        self.b_h = K.zeros((self.nb_filter,), name='{}_b_h'.format(self.name))
-
-        self.trainable_weights = [self.W_z, self.U_z, self.b_z,
-                                  self.W_r, self.U_r, self.b_r,
-                                  self.W_h, self.U_h, self.b_h]
+        self.W_z = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_z'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_z = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_z'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_z = self.add_weight((self.nb_filter,),
+                                   initializer='zero',
+                                   name='{}_b_z'.format(self.name),
+                                   regularizer=self.b_regularizer)
+        self.W_r = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_r'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_r = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_r'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_r = self.add_weight((self.nb_filter,),
+                                   initializer='zero',
+                                   name='{}_b_r'.format(self.name),
+                                   regularizer=self.b_regularizer)
+        self.W_h = self.add_weight(self.W_shape,
+                                   initializer=self.init,
+                                   name='{}_W_h'.format(self.name),
+                                   regularizer=self.W_regularizer)
+        self.U_h = self.add_weight(self.W_shape1,
+                                   initializer=self.inner_init,
+                                   name='{}_U_h'.format(self.name),
+                                   regularizer=self.U_regularizer)
+        self.b_h = self.add_weight((self.nb_filter,),
+                                   initializer='zero',
+                                   name='{}_b_h'.format(self.name),
+                                   regularizer=self.b_regularizer)
 
         self.W = K.concatenate([self.W_z, self.W_r, self.W_h])
         self.U = K.concatenate([self.U_z, self.U_r, self.U_h])
         self.b = K.concatenate([self.b_z, self.b_r, self.b_h])
-
-        self.regularizers = []
-        if self.W_regularizer:
-            self.W_regularizer.set_param(self.W)
-            self.regularizers.append(self.W_regularizer)
-        if self.U_regularizer:
-            self.U_regularizer.set_param(self.U)
-            self.regularizers.append(self.U_regularizer)
-        if self.b_regularizer:
-            self.b_regularizer.set_param(self.b)
-            self.regularizers.append(self.b_regularizer)
 
         if self.initial_weights is not None:
             self.set_weights(self.initial_weights)

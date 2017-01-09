@@ -38,7 +38,6 @@ seq.add(Convolution3D(nb_filter=1, kernel_dim1=1, kernel_dim2=3,
 seq.compile(loss='binary_crossentropy', optimizer='adadelta')
 
 seq.summary(line_length=150)
-exit()
 
 # Artificial data generation:
 # Generate movies with 3 to 7 moving squares inside.
@@ -100,10 +99,17 @@ def generate_movies(n_samples=1200, n_frames=15):
     shifted_movies[shifted_movies >= 1] = 1
     return noisy_movies, shifted_movies
 
+
 # Train the network
 noisy_movies, shifted_movies = generate_movies(n_samples=1200)
+
+import timeit
+start = timeit.default_timer()
 seq.fit(noisy_movies[:1000], shifted_movies[:1000], batch_size=10,
         nb_epoch=300, validation_split=0.05)
+print 'Train Time: {0}'.format(((timeit.default_timer()-start)/60.))
+
+seq.save_weights('ConvGRU_trained.h5')
 
 # Testing the network on one movie
 # feed it with the first 7 positions and then
@@ -111,10 +117,12 @@ seq.fit(noisy_movies[:1000], shifted_movies[:1000], batch_size=10,
 which = 1004
 track = noisy_movies[which][:7, ::, ::, ::]
 
+start = timeit.default_timer()
 for j in range(16):
     new_pos = seq.predict(track[np.newaxis, ::, ::, ::, ::])
     new = new_pos[::, -1, ::, ::, ::]
     track = np.concatenate((track, new), axis=0)
+print 'Pred Time: {0}'.format(((timeit.default_timer()-start)/60.))
 
 
 # And then compare the predictions

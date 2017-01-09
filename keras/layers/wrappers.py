@@ -20,13 +20,6 @@ class Wrapper(Layer):
         self.losses = getattr(self.layer, 'losses', [])
         self.constraints = getattr(self.layer, 'constraints', {})
 
-        # properly attribute the current layer to
-        # regularizers that need access to it
-        # (e.g. ActivityRegularizer).
-        for regularizer in self.regularizers:
-            if hasattr(regularizer, 'set_layer'):
-                regularizer.set_layer(self)
-
     def get_weights(self):
         weights = self.layer.get_weights()
         return weights
@@ -106,7 +99,7 @@ class TimeDistributed(Wrapper):
         return (child_output_shape[0], timesteps) + child_output_shape[1:]
 
     def call(self, X, mask=None):
-        input_shape = self.input_spec[0].shape
+        input_shape = K.int_shape(X)
         if input_shape[0]:
             # batch size matters, use rnn-based implementation
             def step(x, states):
@@ -125,7 +118,7 @@ class TimeDistributed(Wrapper):
             input_length = input_shape[1]
             if not input_length:
                 input_length = K.shape(X)[1]
-            X = K.reshape(X, (-1, ) + input_shape[2:])  # (nb_samples * timesteps, ...)
+            X = K.reshape(X, (-1,) + input_shape[2:])  # (nb_samples * timesteps, ...)
             y = self.layer.call(X)  # (nb_samples * timesteps, ...)
             # (nb_samples, timesteps, ...)
             output_shape = self.get_output_shape_for(input_shape)
@@ -141,7 +134,7 @@ class TimeDistributed(Wrapper):
 class Bidirectional(Wrapper):
     ''' Bidirectional wrapper for RNNs.
 
-    # Arguments:
+    # Arguments
         layer: `Recurrent` instance.
         merge_mode: Mode by which outputs of the
             forward and backward RNNs will be combined.
@@ -149,7 +142,7 @@ class Bidirectional(Wrapper):
             If None, the outputs will not be combined,
             they will be returned as a list.
 
-    # Examples:
+    # Examples
 
     ```python
         model = Sequential()

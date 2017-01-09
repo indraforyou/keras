@@ -299,10 +299,10 @@ class Layer(object):
 
         # These properties will be set upon call of self.build(),
         # which itself will be called upon self.add_inbound_node if necessary.
-        if not hasattr(self, 'trainable_weights'):
-            self.trainable_weights = []
-        if not hasattr(self, 'non_trainable_weights'):
-            self.non_trainable_weights = []
+        if not hasattr(self, '_trainable_weights'):
+            self._trainable_weights = []
+        if not hasattr(self, '_non_trainable_weights'):
+            self._non_trainable_weights = []
         if not hasattr(self, 'losses'):
             self.losses = []
         if not hasattr(self, 'constraints'):
@@ -397,7 +397,7 @@ class Layer(object):
         # to the input layer we just created.
         self(x)
 
-    def add_weight(self, shape, initializer, name=None,
+    def add_weight(self, shape, initializer, name=None, scale=None,
                    trainable=True,
                    regularizer=None,
                    constraint=None):
@@ -412,15 +412,18 @@ class Layer(object):
             regularizer: An optional Regularizer instance.
         '''
         initializer = initializations.get(initializer)
-        weight = initializer(shape, name=name)
+        if scale:
+            weight = initializer(shape, name=name, scale=scale)
+        else:
+            weight = initializer(shape, name=name)
         if regularizer is not None:
             self.add_loss(regularizer(weight))
         if constraint is not None:
             self.constraints[weight] = constraint
         if trainable:
-            self.trainable_weights.append(weight)
+            self._trainable_weights.append(weight)
         else:
-            self.non_trainable_weights.append(weight)
+            self._non_trainable_weights.append(weight)
         return weight
 
     def assert_input_compatibility(self, input):
@@ -927,7 +930,10 @@ class Layer(object):
     def get_updates_for(self, inputs):
         if not hasattr(self, '_per_input_updates'):
             return []
-        inputs_hash = object_list_uid(inputs)
+        if inputs is not None:
+            inputs_hash = object_list_uid(inputs)
+        else:
+            inputs_hash = None
         if inputs_hash in self._per_input_updates:
             return self._per_input_updates[inputs_hash]
         return []
@@ -935,7 +941,10 @@ class Layer(object):
     def get_losses_for(self, inputs):
         if not hasattr(self, '_per_input_losses'):
             return []
-        inputs_hash = object_list_uid(inputs)
+        if inputs is not None:
+            inputs_hash = object_list_uid(inputs)
+        else:
+            inputs_hash = None
         if inputs_hash in self._per_input_losses:
             return self._per_input_losses[inputs_hash]
         return []
@@ -1053,16 +1062,11 @@ class InputLayer(Layer):
         self.uses_learning_phase = False
         self.trainable = False
         self.built = True
-        self.trainable_weights = []
-        self.non_trainable_weights = []
-
+        self._trainable_weights = []
+        self._non_trainable_weights = []
         self.inbound_nodes = []
         self.outbound_nodes = []
-
-        self.trainable_weights = []
-        self.non_trainable_weights = []
         self.constraints = {}
-
         self.sparse = sparse
 
         if not name:
@@ -1171,7 +1175,7 @@ def Input(shape=None, batch_shape=None,
         sparse: A boolean specifying whether the placeholder
             to be created is sparse.
 
-    # Example usage
+    # Example
 
         ```python
         # this is a logistic regression in Keras
@@ -1204,7 +1208,7 @@ class Merge(Layer):
     '''A `Merge` layer can be used to merge a list of tensors
     into a single tensor, following some merge `mode`.
 
-    # Example usage
+    # Example
 
     ```python
     model1 = Sequential()
@@ -1214,7 +1218,7 @@ class Merge(Layer):
     model2.add(Dense(32, input_dim=32))
 
     merged_model = Sequential()
-    merged_model.add(Merge([model1, model2], mode='concat', concat_axis=1)
+    merged_model.add(Merge([model1, model2], mode='concat', concat_axis=1))
     ```
 
     # Arguments
@@ -1254,7 +1258,7 @@ class Merge(Layer):
     '''
     def __init__(self, layers=None, mode='sum', concat_axis=-1,
                  dot_axes=-1, output_shape=None, output_mask=None,
-                 arguments={}, node_indices=None, tensor_indices=None,
+                 arguments=None, node_indices=None, tensor_indices=None,
                  name=None):
         self.layers = layers
         self.mode = mode
@@ -1263,14 +1267,14 @@ class Merge(Layer):
         self._output_shape = output_shape
         self.node_indices = node_indices
         self._output_mask = output_mask
-        self.arguments = arguments
+        self.arguments = arguments if arguments else {}
 
         # Layer parameters.
         self.inbound_nodes = []
         self.outbound_nodes = []
         self.constraints = {}
-        self.trainable_weights = []
-        self.non_trainable_weights = []
+        self._trainable_weights = []
+        self._non_trainable_weights = []
         self.supports_masking = True
         self.uses_learning_phase = False
         self.input_spec = None  # Compatible with anything.
@@ -1615,11 +1619,11 @@ class Merge(Layer):
 
 def merge(inputs, mode='sum', concat_axis=-1,
           dot_axes=-1, output_shape=None, output_mask=None,
-          arguments={}, name=None):
+          arguments=None, name=None):
     '''Functional merge, to apply to Keras tensors (NOT layers).
     Returns a Keras tensor.
 
-    # Example usage:
+    # Example
 
     ```python
     tensor_a = Input(shape=(32,))
@@ -2534,7 +2538,7 @@ class Container(Layer):
         return copy.deepcopy(config)
 
     @classmethod
-    def from_config(cls, config, custom_objects={}):
+    def from_config(cls, config, custom_objects=None):
         '''Instantiates a Model from its config (output of `get_config()`).
         '''
         from keras.utils.layer_utils import layer_from_config
@@ -2606,7 +2610,7 @@ class Container(Layer):
         is a compiled model ready to be used (unless the saved model
         was never compiled in the first place).
 
-        # Example usage
+        # Example
 
         ```python
         from keras.models import load_model

@@ -206,7 +206,7 @@ class Recurrent(Layer):
         # input shape: (nb_samples, time (padded with zeros), input_dim)
         # note that the .build() method of subclasses MUST define
         # self.input_spec with a complete input shape.
-        input_shape = self.input_spec[0].shape
+        input_shape = K.int_shape(x)
         if self.unroll and input_shape[1] is None:
             raise ValueError('Cannot unroll a RNN if the '
                              'time dimension is undefined. \n'
@@ -237,7 +237,7 @@ class Recurrent(Layer):
             updates = []
             for i in range(len(states)):
                 updates.append((self.states[i], states[i]))
-            self.add_updates(updates, x)
+            self.add_update(updates, x)
 
         if self.return_sequences:
             return outputs
@@ -353,7 +353,7 @@ class SimpleRNN(Recurrent):
 
     def preprocess_input(self, x):
         if self.consume_less == 'cpu':
-            input_shape = self.input_spec[0].shape
+            input_shape = K.int_shape(x)
             input_dim = input_shape[2]
             timesteps = input_shape[1]
             return self.time_distributed_dense(x, self.W, self.b, self.dropout_W,
@@ -388,7 +388,7 @@ class SimpleRNN(Recurrent):
         else:
             constants.append(K.cast_to_floatx(1.))
         if self.consume_less == 'cpu' and 0 < self.dropout_W < 1:
-            input_shape = self.input_spec[0].shape
+            input_shape = K.int_shape(x)
             input_dim = input_shape[-1]
             ones = K.ones_like(K.reshape(x[:, 0, 0], (-1, 1)))
             ones = K.tile(ones, (1, int(input_dim)))
@@ -446,7 +446,8 @@ class GRU(Recurrent):
                  init='glorot_uniform', inner_init='orthogonal',
                  activation='tanh', inner_activation='hard_sigmoid',
                  W_regularizer=None, U_regularizer=None, b_regularizer=None,
-                 dropout_W=0., dropout_U=0., **kwargs):
+                 dropout_W=0., dropout_U=0., 
+                 layer_normalization=False, ln_gama=True, ln_gama_init_scale=1., ln_beta=True, ln_beta_init='zero',  **kwargs):
         self.output_dim = output_dim
         self.init = initializations.get(init)
         self.inner_init = initializations.get(inner_init)
@@ -457,6 +458,18 @@ class GRU(Recurrent):
         self.b_regularizer = regularizers.get(b_regularizer)
         self.dropout_W = dropout_W
         self.dropout_U = dropout_U
+
+        # @@@
+        # TODO: implement ln_gama, ln_beta as False
+        # TODO: get trainable flag
+        self.layer_normalization = layer_normalization
+        self.ln_gama = ln_gama
+        self.ln_gama_init_scale = ln_gama_init_scale
+        self.ln_beta = ln_beta
+
+        if self.layer_normalization:
+            self.gamma_init = initializations.get('constant')
+            self.beta_init  = initializations.get(ln_beta_init)
 
         if self.dropout_W or self.dropout_U:
             self.uses_learning_phase = True
@@ -522,6 +535,45 @@ class GRU(Recurrent):
                                        initializer='zero',
                                        name='{}_b_h'.format(self.name),
                                        regularizer=self.b_regularizer)
+
+            if self.layer_normalization:
+                self.G_x_z      = self.add_weight((self.output_dim,),
+                                       initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                       name='{}_G_x_z'.format(self.name))
+                self.G_x_r      = self.add_weight((self.output_dim,),
+                                       initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                       name='{}_G_x_r'.format(self.name))
+                self.G_x_h      = self.add_weight((self.output_dim,),
+                                       initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                       name='{}_G_x_h'.format(self.name))
+                self.G_inner_z  = self.add_weight((self.output_dim,),
+                                       initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                       name='{}_G_inner_z'.format(self.name))
+                self.G_inner_r  = self.add_weight((self.output_dim,),
+                                       initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                       name='{}_G_inner_r'.format(self.name))
+                self.G_inner_h  = self.add_weight((self.output_dim,),
+                                       initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                       name='{}_G_inner_h'.format(self.name))
+                self.B_x_z      = self.add_weight((self.output_dim,),
+                                       initializer=self.beta_init,
+                                       name='{}_B_x_z'.format(self.name))
+                self.B_x_r      = self.add_weight((self.output_dim,),
+                                       initializer=self.beta_init,
+                                       name='{}_B_x_r'.format(self.name))
+                self.B_x_h      = self.add_weight((self.output_dim,),
+                                       initializer=self.beta_init,
+                                       name='{}_B_x_h'.format(self.name))
+                self.B_inner_z  = self.add_weight((self.output_dim,),
+                                       initializer=self.beta_init,
+                                       name='{}_B_inner_z'.format(self.name))
+                self.B_inner_r  = self.add_weight((self.output_dim,),
+                                       initializer=self.beta_init,
+                                       name='{}_B_inner_r'.format(self.name))
+                self.B_inner_h  = self.add_weight((self.output_dim,),
+                                       initializer=self.beta_init,
+                                       name='{}_B_inner_h'.format(self.name))
+
             self.W = K.concatenate([self.W_z, self.W_r, self.W_h])
             self.U = K.concatenate([self.U_z, self.U_r, self.U_h])
             self.b = K.concatenate([self.b_z, self.b_r, self.b_h])
@@ -530,6 +582,14 @@ class GRU(Recurrent):
             self.set_weights(self.initial_weights)
             del self.initial_weights
         self.built = True
+
+    def normalize(self, x, gamma, beta, epsilon=1e-3):
+        # sample-wise normalization
+        m = K.mean(x, axis=-1, keepdims=True)
+        std = K.sqrt(K.var(x, axis=-1, keepdims=True) + epsilon)
+        x_normed = (x - m) / (std + epsilon)
+        x_normed = gamma * x_normed + beta
+        return x_normed
 
     def reset_states(self):
         assert self.stateful, 'Layer must be stateful.'
@@ -545,7 +605,7 @@ class GRU(Recurrent):
 
     def preprocess_input(self, x):
         if self.consume_less == 'cpu':
-            input_shape = self.input_spec[0].shape
+            input_shape = K.int_shape(x)
             input_dim = input_shape[2]
             timesteps = input_shape[1]
 
@@ -591,10 +651,25 @@ class GRU(Recurrent):
                 x_h = K.dot(x * B_W[2], self.W_h) + self.b_h
             else:
                 raise ValueError('Unknown `consume_less` mode.')
-            z = self.inner_activation(x_z + K.dot(h_tm1 * B_U[0], self.U_z))
-            r = self.inner_activation(x_r + K.dot(h_tm1 * B_U[1], self.U_r))
 
-            hh = self.activation(x_h + K.dot(r * h_tm1 * B_U[2], self.U_h))
+            inner_z = K.dot(h_tm1 * B_U[0], self.U_z)
+            inner_r = K.dot(h_tm1 * B_U[1], self.U_r)
+
+            if self.layer_normalization:
+                x_z = self.normalize(x_z, self.G_x_z, self.B_x_z)
+                x_r = self.normalize(x_r, self.G_x_r, self.B_x_r)
+                x_h = self.normalize(x_h, self.G_x_h, self.B_x_h)
+                inner_z = self.normalize(inner_z, self.G_inner_z, self.B_inner_z)
+                inner_r = self.normalize(inner_r, self.G_inner_r, self.B_inner_r)
+
+            z = self.inner_activation(x_z + inner_z)
+            r = self.inner_activation(x_r + inner_r)
+
+            inner_h = K.dot(r * h_tm1 * B_U[2], self.U_h)
+            if self.layer_normalization:
+                inner_h = self.normalize(inner_h, self.G_inner_h, self.B_inner_h)
+
+            hh = self.activation(x_h + inner_h)
         h = z * h_tm1 + (1 - z) * hh
         return h, [h]
 
@@ -612,7 +687,7 @@ class GRU(Recurrent):
             constants.append([K.cast_to_floatx(1.) for _ in range(3)])
 
         if 0 < self.dropout_W < 1:
-            input_shape = self.input_spec[0].shape
+            input_shape = K.int_shape(x)
             input_dim = input_shape[-1]
             ones = K.ones_like(K.reshape(x[:, 0, 0], (-1, 1)))
             ones = K.tile(ones, (1, int(input_dim)))
@@ -776,10 +851,10 @@ class LSTM(Recurrent):
                                        name='{}_b_o'.format(self.name),
                                        regularizer=self.b_regularizer)
 
-            self.trainable_weights = [self.W_i, self.U_i, self.b_i,
-                                      self.W_c, self.U_c, self.b_c,
-                                      self.W_f, self.U_f, self.b_f,
-                                      self.W_o, self.U_o, self.b_o]
+            # self.trainable_weights = [self.W_i, self.U_i, self.b_i,
+            #                           self.W_c, self.U_c, self.b_c,
+            #                           self.W_f, self.U_f, self.b_f,
+            #                           self.W_o, self.U_o, self.b_o]
 
             self.W = K.concatenate([self.W_i, self.W_f, self.W_c, self.W_o])
             self.U = K.concatenate([self.U_i, self.U_f, self.U_c, self.U_o])
@@ -811,7 +886,7 @@ class LSTM(Recurrent):
                 dropout = self.dropout_W
             else:
                 dropout = 0
-            input_shape = self.input_spec[0].shape
+            input_shape = K.int_shape(x)
             input_dim = input_shape[2]
             timesteps = input_shape[1]
 
@@ -881,7 +956,7 @@ class LSTM(Recurrent):
             constants.append([K.cast_to_floatx(1.) for _ in range(4)])
 
         if 0 < self.dropout_W < 1:
-            input_shape = self.input_spec[0].shape
+            input_shape = K.int_shape(x)
             input_dim = input_shape[-1]
             ones = K.ones_like(K.reshape(x[:, 0, 0], (-1, 1)))
             ones = K.tile(ones, (1, int(input_dim)))
