@@ -609,7 +609,7 @@ class ConvGRU2D(ConvRecurrent2D):
                  border_mode='valid', subsample=(1, 1),
                  W_regularizer=None, U_regularizer=None, b_regularizer=None,
                  dropout_W=0., dropout_U=0., dropout_always=False,
-                 layer_normalization=False, ln_gama=True, ln_gama_init=1., ln_beta=True, ln_beta_init='zero',  **kwargs):
+                 layer_normalization=False, ln_gama=True, ln_gama_init_scale=1., ln_beta=True, ln_beta_init='zero',  **kwargs):
 
         if dim_ordering == 'default':
             dim_ordering = K.image_dim_ordering()
@@ -625,11 +625,18 @@ class ConvGRU2D(ConvRecurrent2D):
         self.border_mode = border_mode
         self.subsample = subsample
         self.dropout_always = dropout_always
+
+        # @@@
+        # TODO: implement ln_gama, ln_beta as False
+        # TODO: get trainable flag
         self.layer_normalization = layer_normalization
         self.ln_gama = ln_gama
-        self.ln_gama_init = ln_gama_init
+        self.ln_gama_init_scale = ln_gama_init_scale
         self.ln_beta = ln_beta
-        self.ln_beta_init = ln_beta_init
+
+        if self.layer_normalization:
+            self.gamma_init = initializations.get('constant')
+            self.beta_init  = initializations.get(ln_beta_init)
 
         if dim_ordering == 'th':
             warnings.warn('Be carefull if used with convolution3D layers:\n'
@@ -721,6 +728,47 @@ class ConvGRU2D(ConvRecurrent2D):
                                    name='{}_b_h'.format(self.name),
                                    regularizer=self.b_regularizer)
 
+        input_shape = self.input_spec[0].shape
+        output_shape = self.get_output_shape_for(input_shape)
+        output_shape = output_shape[1:]
+        if self.layer_normalization:
+            self.G_x_z      = self.add_weight(output_shape,
+                                   initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                   name='{}_G_x_z'.format(self.name))
+            self.G_x_r      = self.add_weight(output_shape,
+                                   initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                   name='{}_G_x_r'.format(self.name))
+            self.G_x_h      = self.add_weight(output_shape,
+                                   initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                   name='{}_G_x_h'.format(self.name))
+            self.G_h_z  = self.add_weight(output_shape,
+                                   initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                   name='{}_G_h_z'.format(self.name))
+            self.G_h_r  = self.add_weight(output_shape,
+                                   initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                   name='{}_G_h_r'.format(self.name))
+            self.G_h_h  = self.add_weight(output_shape,
+                                   initializer=self.gamma_init, scale=self.ln_gama_init_scale,
+                                   name='{}_G_h_h'.format(self.name))
+            self.B_x_z      = self.add_weight(output_shape,
+                                   initializer=self.beta_init,
+                                   name='{}_B_x_z'.format(self.name))
+            self.B_x_r      = self.add_weight(output_shape,
+                                   initializer=self.beta_init,
+                                   name='{}_B_x_r'.format(self.name))
+            self.B_x_h      = self.add_weight(output_shape,
+                                   initializer=self.beta_init,
+                                   name='{}_B_x_h'.format(self.name))
+            self.B_h_z  = self.add_weight(output_shape,
+                                   initializer=self.beta_init,
+                                   name='{}_B_h_z'.format(self.name))
+            self.B_h_r  = self.add_weight(output_shape,
+                                   initializer=self.beta_init,
+                                   name='{}_B_h_r'.format(self.name))
+            self.B_h_h  = self.add_weight(output_shape,
+                                   initializer=self.beta_init,
+                                   name='{}_B_h_h'.format(self.name))
+
         self.W = K.concatenate([self.W_z, self.W_r, self.W_h])
         self.U = K.concatenate([self.U_z, self.U_r, self.U_h])
         self.b = K.concatenate([self.b_z, self.b_r, self.b_h])
@@ -729,6 +777,39 @@ class ConvGRU2D(ConvRecurrent2D):
             self.set_weights(self.initial_weights)
             del self.initial_weights
         self.built = True
+
+    def normalize(self, x, gamma, beta, epsilon=1e-3):
+        # sample-wise normalization
+        m = K.mean(x, axis=-1, keepdims=True)
+        std = K.sqrt(K.var(x, axis=-1, keepdims=True) + epsilon)
+        x_normed = (x - m) / (std + epsilon)
+        x_normed = gamma * x_normed + beta
+        return x_normed
+
+        # print K.int_shape(x)
+        # m = K.mean(x, axis=-1, keepdims=True)
+        # print K.int_shape(m)
+        # std = K.sqrt(K.var(x, axis=-1, keepdims=True) + epsilon)
+        # print K.int_shape(std)
+        # x_normed = (x - m) / (std + epsilon)
+        # print K.int_shape(x_normed)
+        # x_normed_temp = gamma * x_normed 
+        # print K.int_shape(x_normed_temp)
+        # x_normed = x_normed_temp + beta
+        # print K.int_shape(x_normed)
+
+        # print K.int_shape(x)
+        # m = K.mean(x, keepdims=True)
+        # print K.int_shape(m)
+        # std = K.sqrt(K.var(x, keepdims=True) + epsilon)
+        # print K.int_shape(std)
+        # x_normed = (x - m) / (std + epsilon)
+        # print K.int_shape(x_normed)
+        # x_normed_temp = gamma * x_normed 
+        # print K.int_shape(x_normed_temp)
+        # x_normed = x_normed_temp + beta
+        # print K.int_shape(x_normed)
+        # exit()
 
     def reset_states(self):
         assert self.stateful, 'Layer must be stateful.'
@@ -820,11 +901,20 @@ class ConvGRU2D(ConvRecurrent2D):
         h_r = self.conv_step_hidden(h_tm1 * B_U[1], self.U_r,
                                     border_mode='same')
 
+        if self.layer_normalization:
+            x_z = self.normalize(x_z, self.G_x_z, self.B_x_z)
+            x_r = self.normalize(x_r, self.G_x_r, self.B_x_r)
+            x_h = self.normalize(x_h, self.G_x_h, self.B_x_h)
+            h_z = self.normalize(h_z, self.G_h_z, self.B_h_z)
+            h_r = self.normalize(h_r, self.G_h_r, self.B_h_r)
+
         z = self.inner_activation(x_z + h_z)
         r = self.inner_activation(x_r + h_r)
 
         h_h = self.conv_step_hidden(r * h_tm1 * B_U[2], self.U_h,
                                     border_mode='same')
+        if self.layer_normalization:
+            h_h = self.normalize(h_h, self.G_h_h, self.B_h_h)
 
         hh = self.activation(x_h + h_h)
         h = z * h_tm1 + (1 - z) * hh

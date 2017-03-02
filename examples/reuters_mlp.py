@@ -21,6 +21,9 @@ print('Loading data...')
 print(len(X_train), 'train sequences')
 print(len(X_test), 'test sequences')
 
+# print (X_train.shape)
+# print (y_train.shape)
+
 nb_classes = np.max(y_train)+1
 print(nb_classes, 'classes')
 
@@ -30,6 +33,8 @@ X_train = tokenizer.sequences_to_matrix(X_train, mode='binary')
 X_test = tokenizer.sequences_to_matrix(X_test, mode='binary')
 print('X_train shape:', X_train.shape)
 print('X_test shape:', X_test.shape)
+# print (X_train[0])
+# exit()
 
 print('Convert class vector to binary class matrix (for use with categorical_crossentropy)')
 Y_train = np_utils.to_categorical(y_train, nb_classes)

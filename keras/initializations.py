@@ -102,6 +102,8 @@ def one(shape, name=None):
     return K.ones(shape, name=name)
 
 def constant(shape, name=None, scale=1):
+    # print shape
+    # print scale
     return K.variable(np.ones(shape) * scale, name=name)
 
 

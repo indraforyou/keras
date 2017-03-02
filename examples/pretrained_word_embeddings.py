@@ -24,7 +24,7 @@ from keras.layers import Conv1D, MaxPooling1D, Embedding
 from keras.models import Model
 import sys
 
-BASE_DIR = ''
+BASE_DIR = '.'
 GLOVE_DIR = BASE_DIR + '/glove.6B/'
 TEXT_DATA_DIR = BASE_DIR + '/20_newsgroup/'
 MAX_SEQUENCE_LENGTH = 1000
@@ -72,10 +72,13 @@ for name in sorted(os.listdir(TEXT_DATA_DIR)):
 
 print('Found %s texts.' % len(texts))
 
+# print (texts[0])
+
 # finally, vectorize the text samples into a 2D integer tensor
 tokenizer = Tokenizer(nb_words=MAX_NB_WORDS)
 tokenizer.fit_on_texts(texts)
 sequences = tokenizer.texts_to_sequences(texts)
+
 
 word_index = tokenizer.word_index
 print('Found %s unique tokens.' % len(word_index))

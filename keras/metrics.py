@@ -203,6 +203,39 @@ def fmeasure(y_true, y_pred):
     return fbeta_score(y_true, y_pred, beta=1)
 
 
+def binary_MI(y_true, y_pred):
+    a_0 = K.cast(K.equal(y_true,0), 'float32')
+    a_1 = K.cast(K.equal(y_true,1), 'float32')
+    b_0 = K.cast(K.equal(K.round(K.clip(y_pred, 0, 1)),0), 'float32')
+    b_1 = K.cast(K.equal(K.round(K.clip(y_pred, 0, 1)),1), 'float32')
+
+    p_0_a = K.mean(a_0, axis=-1)
+    p_1_a = K.mean(a_1, axis=-1)
+    p_0_b = K.mean(b_0, axis=-1)
+    p_1_b = K.mean(b_1, axis=-1)
+
+    p_0_a = K.clip(p_0_a, K.epsilon(), 1) 
+    p_1_a = K.clip(p_1_a, K.epsilon(), 1) 
+    p_0_b = K.clip(p_0_b, K.epsilon(), 1) 
+    p_1_b = K.clip(p_1_b, K.epsilon(), 1) 
+
+    p_0_0 = K.mean(a_0*b_0, axis=-1)
+    p_0_1 = K.mean(a_0*b_1, axis=-1)
+    p_1_0 = K.mean(a_1*b_0, axis=-1)
+    p_1_1 = K.mean(a_1*b_1, axis=-1)
+
+    p_0_0 = K.clip(p_0_0, K.epsilon(), 1) 
+    p_0_1 = K.clip(p_0_1, K.epsilon(), 1) 
+    p_1_0 = K.clip(p_1_0, K.epsilon(), 1) 
+    p_1_1 = K.clip(p_1_1, K.epsilon(), 1) 
+
+    MI = (  p_0_0*K.log(p_0_0/(p_0_a*p_0_b)) + 
+            p_0_1*K.log(p_0_1/(p_0_a*p_1_b)) + 
+            p_1_0*K.log(p_1_0/(p_1_a*p_0_b)) + 
+            p_1_1*K.log(p_1_1/(p_1_a*p_1_b)))/K.log(10.)
+
+    return K.mean(MI)
+
 # aliases
 mse = MSE = mean_squared_error
 mae = MAE = mean_absolute_error

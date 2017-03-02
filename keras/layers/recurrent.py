@@ -585,10 +585,18 @@ class GRU(Recurrent):
 
     def normalize(self, x, gamma, beta, epsilon=1e-3):
         # sample-wise normalization
+        # print K.int_shape(x)
         m = K.mean(x, axis=-1, keepdims=True)
+        # print K.int_shape(m)
         std = K.sqrt(K.var(x, axis=-1, keepdims=True) + epsilon)
+        # print K.int_shape(std)
         x_normed = (x - m) / (std + epsilon)
-        x_normed = gamma * x_normed + beta
+        # print K.int_shape(x_normed)
+        x_normed_temp = gamma * x_normed 
+        # print K.int_shape(x_normed_temp)
+        x_normed = x_normed_temp + beta
+        # print K.int_shape(x_normed)
+        # exit()
         return x_normed
 
     def reset_states(self):

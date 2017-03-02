@@ -136,6 +136,8 @@ def vectorize_stories(data, word_idx, story_maxlen, query_maxlen):
         X.append(x)
         Xq.append(xq)
         Y.append(y)
+        # print (Y)
+        # exit()
     return pad_sequences(X, maxlen=story_maxlen), pad_sequences(Xq, maxlen=query_maxlen), np.array(Y)
 
 RNN = recurrent.LSTM
@@ -175,6 +177,9 @@ query_maxlen = max(map(len, (x for _, x, _ in train + test)))
 X, Xq, Y = vectorize_stories(train, word_idx, story_maxlen, query_maxlen)
 tX, tXq, tY = vectorize_stories(test, word_idx, story_maxlen, query_maxlen)
 
+# print(X[1])
+# print(Xq[1])
+# print(Y[1])
 print('vocab = {}'.format(vocab))
 print('X.shape = {}'.format(X.shape))
 print('Xq.shape = {}'.format(Xq.shape))
@@ -206,6 +211,16 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 print('Training')
-model.fit([X, Xq], Y, batch_size=BATCH_SIZE, nb_epoch=EPOCHS, validation_split=0.05)
-loss, acc = model.evaluate([tX, tXq], tY, batch_size=BATCH_SIZE)
-print('Test loss / test accuracy = {:.4f} / {:.4f}'.format(loss, acc))
+model.fit([X, Xq], Y, batch_size=BATCH_SIZE, nb_epoch=1, validation_split=0.05)
+
+
+print (tX.shape)
+Y_pred = model.predict([tX, tXq])
+for pred in Y_pred:
+    print (vocab[pred.argmax()-1])
+
+
+# loss, acc = model.evaluate([tX, tXq], tY, batch_size=BATCH_SIZE)
+
+
+# print('Test loss / test accuracy = {:.4f} / {:.4f}'.format(loss, acc))

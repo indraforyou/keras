@@ -793,3 +793,14 @@ class LambdaCallback(Callback):
         self.on_batch_end = on_batch_end if on_batch_end else lambda batch, logs: None
         self.on_train_begin = on_train_begin if on_train_begin else lambda logs: None
         self.on_train_end = on_train_end if on_train_end else lambda logs: None
+
+
+class MatplotlibVis(Callback):
+    def __init__(self, vis=True, save=True, file=None):
+        self.vis = vis
+        self.save = save
+
+    def on_epoch_end(self, epoch, logs={}):
+        print (logs) 
+        print (epoch)
+

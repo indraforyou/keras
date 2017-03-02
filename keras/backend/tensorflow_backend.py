@@ -1597,7 +1597,12 @@ class Function(object):
                 indices = np.concatenate((np.expand_dims(sparse_coo.row, 1),
                                           np.expand_dims(sparse_coo.col, 1)), 1)
                 value = (indices, sparse_coo.data, sparse_coo.shape)
+
+            # print tensor
+            # # print value.shape
+            # print int_shape(tensor)
             feed_dict[tensor] = value
+        
         session = get_session()
         updated = session.run(self.outputs + [self.updates_op],
                               feed_dict=feed_dict)
@@ -1868,6 +1873,12 @@ def switch(condition, then_expression, else_expression):
               lambda: else_expression)
     x.set_shape(x_shape)
     return x
+
+def switch2(condition, then_expression, else_expression):
+    '''condition: scalar tensor.
+    '''
+    return tf.select(condition, then_expression, else_expression)
+
 
 
 def in_train_phase(x, alt):

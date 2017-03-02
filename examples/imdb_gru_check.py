@@ -28,7 +28,7 @@ batch_size = 32
 print('Build model...')
 model = Sequential()
 model.add(Embedding(max_features, 128, dropout=0.2))
-model.add(GRU(128, dropout_W=0.2, dropout_U=0.2,  consume_less='mem', layer_normalization=False, ln_gama_init_scale=0.2))  # try using a GRU instead, for fun
+model.add(GRU(128, dropout_W=0.2, dropout_U=0.2,  consume_less='mem', layer_normalization=True, ln_gama_init_scale=0.2))  # try using a GRU instead, for fun
 model.add(Dense(1))
 model.add(Activation('sigmoid'))
 
